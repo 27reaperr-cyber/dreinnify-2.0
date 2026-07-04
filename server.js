@@ -36,16 +36,44 @@ const ADMIN_TG_ID = String(ADMIN_ID || '');
 
 // ---------- пути ----------
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, 'data');
+const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const GENERATED_DIR = path.join(PUBLIC_DIR, 'generated');
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(GENERATED_DIR, { recursive: true });
+
+function ensureDir(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // проверяем что реально можем писать
+    const probe = path.join(dir, '.probe');
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
+  } catch (e) {
+    console.error(`[fatal] нет доступа к ${dir}: ${e.message}`);
+    console.error('        Проверь права на папку или задай другую через DATA_DIR в .env');
+    process.exit(1);
+  }
+}
+ensureDir(DATA_DIR);
+ensureDir(GENERATED_DIR);
 
 // ============================================================
 // БД
 // ============================================================
-const db = new Database(path.join(DATA_DIR, 'dreinnify.db'));
+const DB_PATH = path.join(DATA_DIR, 'dreinnify.db');
+console.log(`[db] открываю ${DB_PATH}`);
+let db;
+try {
+  db = new Database(DB_PATH);
+} catch (e) {
+  console.error(`[fatal] SQLite не смог открыть ${DB_PATH}: ${e.message}`);
+  console.error('        cwd:', process.cwd(), 'root:', ROOT);
+  console.error('        Возможные причины:');
+  console.error('          • путь содержит недопустимые символы (проверь DATA_DIR)');
+  console.error('          • антивирус блокирует создание .db (добавь папку в исключения)');
+  console.error('          • better-sqlite3 не собрался под твою версию Node — переустанови:');
+  console.error('            npm rebuild better-sqlite3 --build-from-source');
+  process.exit(1);
+}
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 

@@ -33,8 +33,6 @@ VOLUME ["/app/data", "/app/public/generated"]
 
 EXPOSE 3000
 
-# Non-root запуск
-RUN useradd -u 1001 -m dreinnify && chown -R dreinnify:dreinnify /app
-USER dreinnify
-
+# На большинстве хостингов volume монтируется от root — оставляем контейнер под root,
+# чтобы SQLite мог писать в /app/data. Хостинг сам изолирует контейнер.
 CMD ["node", "server.js"]
